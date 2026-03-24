@@ -9,10 +9,29 @@ import { Badge } from "@/components/ui/badge";
 
 export default async function DashboardPage() {
   let session = null;
+  let authError: unknown = null;
+
   try {
     session = await auth();
   } catch (e) {
-    console.error("[auth] session error:", e);
+    authError = e;
+    // If it's a DYNAMIC_SERVER_USAGE error (headers unavailable during static gen),
+    // it means the route was correctly marked dynamic — retry once
+    if (
+      e instanceof Error &&
+      e.message.includes("DYNAMIC_SERVER_USAGE")
+    ) {
+      try {
+        session = await auth();
+        authError = null;
+      } catch {
+        // still failed, proceed with authError
+      }
+    }
+  }
+
+  if (authError) {
+    console.error("[auth] session error after retry:", authError);
   }
 
   const userId = (session?.user as { id?: string } | null | undefined)?.id;
