@@ -50,9 +50,10 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("[REGISTER_ERROR]", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[REGISTER_ERROR]", message, error);
     return NextResponse.json(
-      { error: "Something went wrong" },
+      { error: "Something went wrong", details: message },
       { status: 500 }
     );
   }
