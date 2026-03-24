@@ -81,7 +81,7 @@ export default async function DashboardBoardPage({ params }: Props) {
         <div className="space-y-6">
           {statusOrder.map((status) => {
             const features = product.featureRequests.filter(
-              (f) => f.status === status
+              (f: typeof product.featureRequests[number]) => f.status === status
             );
             if (features.length === 0) return null;
 
