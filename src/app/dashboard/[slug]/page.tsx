@@ -17,9 +17,16 @@ interface Props {
 
 export default async function ProductDashboardPage({ params }: Props) {
   const { slug } = await params;
-  const session = await auth();
 
-  if (!session?.user?.id) {
+  let session = null;
+  try {
+    session = await auth();
+  } catch (e) {
+    console.error("[auth] session error:", e);
+  }
+
+  const userId = (session?.user as { id?: string } | null | undefined)?.id;
+  if (!userId) {
     redirect("/auth/signin");
   }
 
@@ -45,7 +52,7 @@ export default async function ProductDashboardPage({ params }: Props) {
     notFound();
   }
 
-  if (product.userId !== session.user.id) {
+  if (product.userId !== userId) {
     redirect("/dashboard");
   }
 

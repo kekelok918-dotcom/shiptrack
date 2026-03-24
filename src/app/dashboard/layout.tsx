@@ -1,18 +1,22 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { auth, signOut } from "@/lib/auth";
 import Link from "next/link";
 import { Sparkles, LayoutDashboard, LogOut } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button"
-import { signOut } from "@/lib/auth";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-
-  if (!session?.user) {
+  let session = null;
+  try {
+    session = await auth();
+  } catch (e) {
+    console.error("[auth] session error:", e);
+  }
+  const userId = (session?.user as { id?: string } | null | undefined)?.id;
+  if (!userId) {
     redirect("/auth/signin");
   }
 
@@ -28,7 +32,7 @@ export default async function DashboardLayout({
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:block">
-              {session.user.email}
+              {session?.user?.email ?? "Account"}
             </span>
             <form
               action={async () => {
