@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Plus, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button"
 import { LinkButton } from "@/components/ui/link-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +10,12 @@ import { Badge } from "@/components/ui/badge";
 export default async function DashboardPage() {
   const session = await auth();
 
+  if (!session?.user) {
+    redirect("/auth/signin");
+  }
+
   const products = await db.product.findMany({
-    where: { userId: session!.user!.id },
+    where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
     include: {
       _count: {

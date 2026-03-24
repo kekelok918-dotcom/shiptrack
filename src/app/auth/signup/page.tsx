@@ -39,13 +39,24 @@ export default function SignUpPage() {
 
       // Sign in after successful registration
       const { signIn } = await import("next-auth/react");
-      await signIn("credentials", {
+      const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
+        callbackUrl: "/dashboard",
       });
 
-      router.push("/dashboard");
+      if (result?.error) {
+        setError("Account created but sign-in failed. Please sign in manually.");
+        setLoading(false);
+        return;
+      }
+
+      if (result?.url) {
+        router.push(result.url);
+      } else {
+        router.push("/dashboard");
+      }
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
