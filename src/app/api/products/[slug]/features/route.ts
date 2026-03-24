@@ -43,7 +43,7 @@ export async function GET(
   });
 
   // Transform to include vote count
-  const result = features.map((f) => ({
+  const result = features.map((f: typeof features[number]) => ({
     ...f,
     votes: f._count.votes,
     _count: undefined,

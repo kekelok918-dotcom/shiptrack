@@ -35,7 +35,7 @@ export async function GET(
       name: product.name,
       slug: product.slug,
     },
-    features: features.map((f) => ({
+    features: features.map((f: typeof features[number]) => ({
       ...f,
       votes: f._count.votes,
       _count: undefined,
