@@ -5,7 +5,6 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "fallback-secret-change-me"
 );
 const COOKIE_NAME = "shiptrack_session";
-const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
 export interface SessionPayload {
   id: string;
@@ -39,13 +38,14 @@ export async function getSession(): Promise<SessionPayload | null> {
   return verifyToken(token);
 }
 
-export function sessionCookieOptions() {
+export function makeSessionCookie(token: string) {
   return {
     name: COOKIE_NAME,
+    value: token,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
-    maxAge: COOKIE_MAX_AGE,
+    maxAge: 30 * 24 * 60 * 60,
   };
 }

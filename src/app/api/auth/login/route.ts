@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { signToken, sessionCookieOptions } from "@/lib/auth";
+import { signToken, makeSessionCookie } from "@/lib/auth";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -42,17 +42,7 @@ export async function POST(request: Request) {
       name: user.name,
     });
 
-    const opts = sessionCookieOptions();
-    response.cookies.set({
-      name: opts.name,
-      value: token,
-      httpOnly: opts.httpOnly,
-      secure: opts.secure,
-      sameSite: opts.sameSite,
-      path: opts.path,
-      maxAge: opts.maxAge,
-    });
-
+    response.cookies.set(makeSessionCookie(token));
     return response;
   } catch (error) {
     console.error("[LOGIN_ERROR]", error);
