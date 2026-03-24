@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { Plus, ArrowRight } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
@@ -8,12 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default async function DashboardPage() {
-  const session = await getSession();
-  if (!session) {
+  const hd = await headers();
+  const userId = hd.get("x-user-id");
+  if (!userId) {
     redirect("/auth/signin");
   }
-
-  const userId = session.id;
 
   let products: Awaited<ReturnType<typeof db.product.findMany>> = [];
   try {

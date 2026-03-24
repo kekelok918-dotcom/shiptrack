@@ -7,6 +7,7 @@ const productSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
   description: z.string().optional(),
+  subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
 });
 
 export async function GET() {
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
   try {
     const headersList = await headers();
     const userId = headersList.get("x-user-id");
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, slug, description } = parsed.data;
+    const { name, slug, description, subdomain } = parsed.data;
 
     const existing = await db.product.findUnique({
       where: { slug },
@@ -64,12 +66,13 @@ export async function POST(request: Request) {
     }
 
     const product = await db.product.create({
-      data: { name, slug, description, userId },
+      data: { name, slug, description, subdomain: subdomain ?? slug, userId },
     });
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
-    console.error("[PRODUCTS_POST]", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[PRODUCTS_POST] error:", message);
+    return NextResponse.json({ error: "Server error", detail: message }, { status: 500 });
   }
 }

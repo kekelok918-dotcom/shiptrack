@@ -1,16 +1,17 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSession();
-
-  if (!session) {
+  const hd = await headers();
+  const userId = hd.get("x-user-id");
+  const userEmail = hd.get("x-user-email");
+  if (!userId) {
     redirect("/auth/signin");
   }
 
@@ -37,12 +38,12 @@ export default async function DashboardLayout({
 
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground hidden sm:block">
-              {session.email}
+              {userEmail}
             </span>
             <form action="/api/auth/logout" method="POST">
               <button
                 type="submit"
-                className={buttonVariants({ variant: "ghost", size: "sm" })}
+                className="h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] hover:bg-muted hover:text-foreground"
               >
                 Sign Out
               </button>

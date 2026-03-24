@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { getSession, type SessionPayload } from "@/lib/auth";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { Plus, ExternalLink, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button"
@@ -17,10 +17,9 @@ interface Props {
 
 export default async function ProductDashboardPage({ params }: Props) {
   const { slug } = await params;
-  const session = await getSession();
-  if (!session) redirect("/auth/signin");
-  const { id: userId } = session as SessionPayload;
-  }
+  const hd = await headers();
+  const userId = hd.get("x-user-id");
+  if (!userId) redirect("/auth/signin");
 
   const product = await db.product.findUnique({
     where: { slug },

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { signToken, makeSessionCookie } from "@/lib/auth";
 
 const registerSchema = z.object({
   name: z.string().min(1).optional(),
@@ -41,18 +42,32 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(
-      {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
+    const token = await signToken({
+      id: user.id,
+      email: user.email,
+      name: user.name ?? undefined,
+    });
+    const cookieOpts = makeSessionCookie(token);
+
+    const response = NextResponse.json(
+      { id: user.id, email: user.email, name: user.name },
       { status: 201 }
     );
+
+    response.cookies.set({
+      name: cookieOpts.name,
+      value: cookieOpts.value,
+      httpOnly: cookieOpts.httpOnly,
+      secure: cookieOpts.secure,
+      sameSite: cookieOpts.sameSite,
+      path: cookieOpts.path,
+      maxAge: cookieOpts.maxAge,
+    });
+
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[REGISTER_ERROR]", message);
-    // Don't leak internal error details to client
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 }
