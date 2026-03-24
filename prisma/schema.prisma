@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String?
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  products Product[]
+
+  @@map("users")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  slug        String   @unique
+  name        String
+  description String?
+  subdomain   String   @unique
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changelogEntries ChangelogEntry[]
+  featureRequests  FeatureRequest[]
+
+  @@map("products")
+}
+
+model ChangelogEntry {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  title     String
+  body      String
+  tag       String   @default("feature")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("changelog_entries")
+}
+
+model FeatureRequest {
+  id          String   @id @default(uuid())
+  productId   String   @map("product_id")
+  title       String
+  description String?
+  status      String   @default("open")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  votes   Vote[]
+
+  @@map("feature_requests")
+}
+
+model Vote {
+  id               String   @id @default(uuid())
+  featureRequestId String   @map("feature_request_id")
+  visitorId        String   @map("visitor_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([featureRequestId, visitorId])
+  @@map("votes")
+}
