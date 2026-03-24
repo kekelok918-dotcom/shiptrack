@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Plus, ArrowRight } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
@@ -8,36 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default async function DashboardPage() {
-  let session = null;
-  let authError: unknown = null;
-
-  try {
-    session = await auth();
-  } catch (e) {
-    authError = e;
-    // If it's a DYNAMIC_SERVER_USAGE error (headers unavailable during static gen),
-    // it means the route was correctly marked dynamic — retry once
-    if (
-      e instanceof Error &&
-      e.message.includes("DYNAMIC_SERVER_USAGE")
-    ) {
-      try {
-        session = await auth();
-        authError = null;
-      } catch {
-        // still failed, proceed with authError
-      }
-    }
-  }
-
-  if (authError) {
-    console.error("[auth] session error after retry:", authError);
-  }
-
-  const userId = (session?.user as { id?: string } | null | undefined)?.id;
-  if (!userId) {
+  const session = await getSession();
+  if (!session) {
     redirect("/auth/signin");
   }
+
+  const userId = session.id;
 
   let products: Awaited<ReturnType<typeof db.product.findMany>> = [];
   try {

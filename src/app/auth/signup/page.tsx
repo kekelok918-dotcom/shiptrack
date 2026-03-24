@@ -23,7 +23,7 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/register", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
@@ -37,26 +37,8 @@ export default function SignUpPage() {
         return;
       }
 
-      // Sign in after successful registration
-      const { signIn } = await import("next-auth/react");
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-        callbackUrl: "/dashboard",
-      });
-
-      if (result?.error) {
-        setError("Account created but sign-in failed. Please sign in manually.");
-        setLoading(false);
-        return;
-      }
-
-      if (result?.url) {
-        router.push(result.url);
-      } else {
-        router.push("/dashboard");
-      }
+      // Cookie is set by the API response — just redirect
+      router.push("/dashboard");
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");

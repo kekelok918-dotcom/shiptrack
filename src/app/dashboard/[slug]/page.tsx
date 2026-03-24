@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { getSession, type SessionPayload } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Plus, ExternalLink, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button"
@@ -17,17 +17,9 @@ interface Props {
 
 export default async function ProductDashboardPage({ params }: Props) {
   const { slug } = await params;
-
-  let session = null;
-  try {
-    session = await auth();
-  } catch (e) {
-    console.error("[auth] session error:", e);
-  }
-
-  const userId = (session?.user as { id?: string } | null | undefined)?.id;
-  if (!userId) {
-    redirect("/auth/signin");
+  const session = await getSession();
+  if (!session) redirect("/auth/signin");
+  const { id: userId } = session as SessionPayload;
   }
 
   const product = await db.product.findUnique({

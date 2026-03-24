@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,20 +22,24 @@ export default function SignInPage() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (result?.error) {
-        setError("Invalid email or password.");
-      } else {
-        router.push("/dashboard");
-        router.refresh();
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Invalid credentials");
+        setLoading(false);
+        return;
       }
+
+      router.push("/dashboard");
+      router.refresh();
     } catch {
-      setError("Something went wrong");
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +107,7 @@ export default function SignInPage() {
           <p className="text-center text-sm text-muted-foreground mt-6">
             Don&apos;t have an account?{" "}
             <Link href="/auth/signup" className="text-primary hover:underline">
-              Sign up
+              Sign up free
             </Link>
           </p>
         </div>

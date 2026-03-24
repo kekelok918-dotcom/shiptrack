@@ -1,51 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { z } from "zod";
+import { db } from "@/lib/db";
 
-const createProductSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  slug: z
-    .string()
-    .min(1)
-    .max(50)
-    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens"),
-  subdomain: z
-    .string()
-    .min(1)
-    .max(50)
-    .regex(/^[a-z0-9-]+$/, "Subdomain must be lowercase letters, numbers, and hyphens"),
+const productSchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
+  description: z.string().optional(),
 });
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const headersList = await headers();
+    const userId = headersList.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const products = await db.product.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: {
-        select: { changelogEntries: true, featureRequests: true },
+    const products = await db.product.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: {
+          select: { changelogEntries: true, featureRequests: true },
+        },
       },
-    },
-  });
-
-  return NextResponse.json(products);
+    });
+    return NextResponse.json(products);
+  } catch (error) {
+    console.error("[PRODUCTS_GET]", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }
 
-export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function POST(request: Request) {
   try {
+    const headersList = await headers();
+    const userId = headersList.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
-    const parsed = createProductSchema.safeParse(body);
+    const parsed = productSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -54,38 +51,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, description, slug, subdomain } = parsed.data;
+    const { name, slug, description } = parsed.data;
 
-    // Check for existing slug/subdomain
-    const existing = await db.product.findFirst({
-      where: {
-        OR: [{ slug }, { subdomain }],
-      },
+    const existing = await db.product.findUnique({
+      where: { slug },
     });
-
     if (existing) {
       return NextResponse.json(
-        { error: "Slug or subdomain already taken" },
+        { error: "This slug is already taken" },
         { status: 409 }
       );
     }
 
     const product = await db.product.create({
-      data: {
-        name,
-        description,
-        slug,
-        subdomain,
-        userId: session.user.id,
-      },
+      data: { name, slug, description, userId },
     });
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
-    console.error("Error creating product:", error);
-    return NextResponse.json(
-      { error: "Failed to create product" },
-      { status: 500 }
-    );
+    console.error("[PRODUCTS_POST]", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

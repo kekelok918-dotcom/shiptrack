@@ -1,80 +1,100 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
-import { checkRateLimit } from "@/lib/redis";
-import { cookies } from "next/headers";
+import { Redis } from "@upstash/redis";
+
+const voteSchema = z.object({
+  visitorId: z.string().min(1),
+});
+
+interface Params {
+  params: Promise<{ slug: string; id: string }>;
+}
+
+let redis: Redis | null = null;
+
+function getRedis() {
+  if (!redis) {
+    redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    });
+  }
+  return redis;
+}
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ slug: string; id: string }> }
+  request: Request,
+  { params }: Params
 ) {
-  const { slug, id } = await params;
-  const cookieStore = await cookies();
-  const visitorId =
-    cookieStore.get("visitor_id")?.value ||
-    `v_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-  // Rate limit check
-  const rateLimitResult = await checkRateLimit(visitorId, slug, 20, 60);
-  if (!rateLimitResult.success) {
-    return NextResponse.json(
-      { error: "Too many requests. Please try again later." },
-      { status: 429 }
-    );
-  }
-
-  // Verify product exists
-  const product = await db.product.findUnique({
-    where: { slug },
-  });
-
-  if (!product) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  }
-
-  // Verify feature exists
-  const feature = await db.featureRequest.findUnique({
-    where: { id },
-  });
-
-  if (!feature || feature.productId !== product.id) {
-    return NextResponse.json(
-      { error: "Feature not found" },
-      { status: 404 }
-    );
-  }
-
   try {
-    // Try to create vote, unique constraint handles duplicates
-    const vote = await db.vote.create({
+    const { slug, id } = await params;
+
+    const product = await db.product.findUnique({ where: { slug } });
+    if (!product) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const feature = await db.featureRequest.findUnique({
+      where: { id, productId: product.id },
+    });
+    if (!feature) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const parsed = voteSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
+
+    const { visitorId } = parsed.data;
+
+    // Check rate limit via Upstash Redis (5 votes per visitor per hour)
+    const redis = getRedis();
+    const rateLimitKey = `vote:${visitorId}:${new Date().toISOString().slice(0, 13)}`;
+    const count = await redis.incr(rateLimitKey);
+    if (count === 1) {
+      await redis.expire(rateLimitKey, 3600);
+    }
+    if (count > 5) {
+      return NextResponse.json(
+        { error: "Too many votes. Please try again later." },
+        { status: 429 }
+      );
+    }
+
+    // Check if already voted
+    const existingVote = await db.vote.findUnique({
+      where: {
+        featureRequestId_visitorId: {
+          featureRequestId: id,
+          visitorId,
+        },
+      },
+    });
+
+    if (existingVote) {
+      return NextResponse.json(
+        { error: "You have already voted on this feature" },
+        { status: 409 }
+      );
+    }
+
+    await db.vote.create({
       data: {
         featureRequestId: id,
         visitorId,
       },
     });
 
-    // Set visitor cookie if not set
-    const response = NextResponse.json({ success: true, vote });
-    if (!cookieStore.get("visitor_id")) {
-      response.cookies.set("visitor_id", visitorId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 365, // 1 year
-      });
-    }
+    const totalVotes = await db.vote.count({
+      where: { featureRequestId: id },
+    });
 
-    return response;
+    return NextResponse.json({ success: true, votes: totalVotes });
   } catch (error) {
-    // Unique constraint violation = already voted
-    if (
-      error instanceof Error &&
-      error.message.includes("Unique constraint")
-    ) {
-      return NextResponse.json(
-        { error: "You have already voted for this feature" },
-        { status: 409 }
-      );
-    }
-    throw error;
+    console.error("[VOTE_POST]", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -1,72 +1,58 @@
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/lib/auth";
 import Link from "next/link";
-import { Sparkles, LayoutDashboard, LogOut } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button"
+import { Sparkles } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  let session = null;
-  try {
-    session = await auth();
-  } catch (e) {
-    console.error("[auth] session error:", e);
-  }
-  const userId = (session?.user as { id?: string } | null | undefined)?.id;
-  if (!userId) {
+  const session = await getSession();
+
+  if (!session) {
     redirect("/auth/signin");
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold">ShipTrack</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:block">
-              {session?.user?.email ?? "Account"}
+    <div className="min-h-screen">
+      <header className="border-b border-primary/10 sticky top-0 z-50 bg-background/80 backdrop-blur-md">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <span className="text-lg font-bold">ShipTrack</span>
+            </Link>
+            <nav className="hidden md:flex items-center gap-4">
+              <Link
+                href="/dashboard"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                Products
+              </Link>
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground hidden sm:block">
+              {session.email}
             </span>
-            <form
-              action={async () => {
-                "use server";
-                await signOut({ redirectTo: "/" });
-              }}
-            >
+            <form action="/api/auth/logout" method="POST">
               <button
                 type="submit"
                 className={buttonVariants({ variant: "ghost", size: "sm" })}
               >
-                <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </button>
             </form>
           </div>
         </div>
       </header>
-
-      <div className="flex-1 flex">
-        <aside className="w-64 border-r bg-card/50 p-4 hidden md:block">
-          <nav className="space-y-2">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              <span>My Products</span>
-            </Link>
-          </nav>
-        </aside>
-
-        <main className="flex-1 p-6">{children}</main>
-      </div>
+      <main className="container mx-auto px-4 py-8">
+        {children}
+      </main>
     </div>
   );
 }

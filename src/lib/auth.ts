@@ -1,62 +1,51 @@
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { z } from "zod";
-import bcrypt from "bcryptjs";
-import { db } from "@/lib/db";
+import { SignJWT, jwtVerify } from "jose";
+import { cookies } from "next/headers";
 
-const credentialsSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "fallback-secret-change-me"
+);
+const COOKIE_NAME = "shiptrack_session";
+const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const parsed = credentialsSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+export interface SessionPayload {
+  id: string;
+  email: string;
+  name?: string;
+}
 
-        const { email, password } = parsed.data;
+export async function signToken(payload: SessionPayload): Promise<string> {
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("30d")
+    .sign(JWT_SECRET);
+}
 
-        const user = await db.user.findUnique({ where: { email } });
-        if (!user) return null;
+export async function verifyToken(
+  token: string
+): Promise<SessionPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload as unknown as SessionPayload;
+  } catch {
+    return null;
+  }
+}
 
-        const passwordMatch = await bcrypt.compare(password, user.password);
-        if (!passwordMatch) return null;
+export async function getSession(): Promise<SessionPayload | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifyToken(token);
+}
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name ?? user.email.split("@")[0],
-        };
-      },
-    }),
-  ],
-  pages: {
-    signIn: "/auth/signin",
-  },
-  callbacks: {
-    async session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
-      }
-      return session;
-    },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
-      }
-      return token;
-    },
-  },
-  session: {
-    strategy: "jwt",
-  },
-  trustHost: true,
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
-});
+export function sessionCookieOptions() {
+  return {
+    name: COOKIE_NAME,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: COOKIE_MAX_AGE,
+  };
+}
