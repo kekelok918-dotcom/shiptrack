@@ -52,7 +52,7 @@ export default async function DashboardPage() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {products.map((product) => (
+          {products.map((product: typeof products[number]) => (
             <Card key={product.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
