@@ -102,7 +102,7 @@ export default async function ProductDashboardPage({ params }: Props) {
             </Card>
           ) : (
             <div className="space-y-3">
-              {product.changelogEntries.map((entry) => (
+              {product.changelogEntries.map((entry: typeof product.changelogEntries[number]) => (
                 <Card key={entry.id}>
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
@@ -156,7 +156,7 @@ export default async function ProductDashboardPage({ params }: Props) {
             </Card>
           ) : (
             <div className="space-y-3">
-              {product.featureRequests.map((feature) => (
+              {product.featureRequests.map((feature: typeof product.featureRequests[number]) => (
                 <Card key={feature.id}>
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">

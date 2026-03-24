@@ -92,7 +92,7 @@ export default async function DashboardBoardPage({ params }: Props) {
                   <Badge variant="secondary">{features.length}</Badge>
                 </h2>
                 <div className="space-y-3">
-                  {features.map((feature) => (
+                  {features.map((feature: typeof features[number]) => (
                     <Card key={feature.id}>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between">

@@ -76,7 +76,7 @@ export default async function PublicChangelogPage({ params }: Props) {
             </Card>
           ) : (
             <div className="space-y-8">
-              {product.changelogEntries.map((entry, index) => (
+              {product.changelogEntries.map((entry: typeof product.changelogEntries[number], index: number) => (
                 <div key={entry.id}>
                   <div className="flex items-start gap-4">
                     <div className="flex-1">
